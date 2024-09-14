@@ -1,8 +1,8 @@
-version: '3.8'
-services: { db: { image: postgres:13, container_name: bookstore_db, environment: { POSTGRES_USER: merdan, POSTGRES_PASSWORD: 0800, POSTGRES_DB: bookstore }, ports: [ "5432:5432" ], volumes: [ postgres_data:/var/lib/postgresql/data ], networks: [ bookstore_network ] } }
-
-volumes:
-  postgres_data:
-
-networks:
-  bookstore_network:
+#version: '3.8'
+#services: { db: { image: postgres:13, container_name: bookstore_db, environment: { POSTGRES_USER: merdan, POSTGRES_PASSWORD: 0800, POSTGRES_DB: bookstore }, ports: [ "5432:5432" ], volumes: [ postgres_data:/var/lib/postgresql/data ], networks: [ bookstore_network ] } }
+#
+#volumes:
+#  postgres_data:
+#
+#networks:
+#  bookstore_network:

@@ -1,27 +1,19 @@
 package routes
 
-import (
-	"Bookstore/internal/handler"
-	"Bookstore/internal/middleware"
-	"github.com/gin-gonic/gin"
-)
-
-func SetupRouter() *gin.Engine {
-	router := gin.Default()
-
-	// Public routes
-	router.POST("/register", handler.Register)
-	router.POST("/login", bookHandler.Login)
-
-	// Protected routes
-	auth := router.Group("/admin")
-	auth.Use(middlewares.AuthMiddleware)
-	{
-		auth.POST("/books", controllers.CreateBook)
-		auth.GET("/books", controllers.GetBooks)
-	}
-
-	router.GET("/books", controllers.GetBooks)
-
-	return router
-}
+//
+//import (
+//	"github.com/gin-gonic/gin"
+//)
+//
+//func SetupRouter() *gin.Engine {
+//	r := gin.Default()
+//
+//	userRoutes := r.Group("/users")
+//	{
+//		userRoutes.POST("/", userHandler.CreateUserHandler)
+//		userRoutes.GET("/:id", userHandler.GetUserHandler)
+//		userRoutes.PUT("/", userHandler.UpdateUserHandler)
+//		userRoutes.DELETE("/:id", userHandler.DeleteUserHandler)
+//	}
+//	return router
+//}

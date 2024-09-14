@@ -1,67 +1,76 @@
 package repository
 
 import (
-	"database/sql"
-	"log"
-
 	"Bookstore/internal/models"
+	"database/sql"
+	"fmt"
+	"log"
 )
 
-func CreateBook(db *sql.DB, book *models.Book) error {
-	Query := `INSERT INTO books (title, author, price, quantity) VALUES ($1, $2, $3, $4) RETURNING id`
-	err := db.QueryRow(Query, book.Title, book.Author, book.Price, book.Quantity).Scan(&book.ID)
+type BookRepository interface {
+	CreateBook(book *models.Book) error
+	GetAllBooks() ([]*models.Book, error)
+	GetBookByID(id int) (*models.Book, error)
+	UpdateBook(book *models.Book) error
+	DeleteBook(id int) error
+}
+
+type bookRepository struct {
+	db *sql.DB
+}
+
+func NewBookRepository(db *sql.DB) BookRepository {
+	return &bookRepository{
+		db: db,
+	}
+}
+func (r *bookRepository) CreateBook(book *models.Book) error {
+	query := "INSERT INTO books (id, title, author, price, quantity) VALUES ($1, $2, $3, $4, $5)"
+	_, err := r.db.Exec(query, book.ID, book.Title, book.Author, book.Price, book.Quantity)
 	if err != nil {
-		log.Println("Error creating book:", err)
+		log.Printf("Error when creating book: %v", err)
 		return err
+	}
+	log.Printf("Created book with id: %v", book.ID)
+	return nil
+}
+
+func (r *bookRepository) GetAllBooks() ([]*models.Book, error) {
+	return nil, nil
+}
+
+func (r *bookRepository) GetBookByID(id int) (*models.Book, error) {
+	query := "SELECT id, title, author, price, quantity from books where id = $1"
+	book := &models.Book{}
+	err := r.db.QueryRow(query, id).Scan(&book.ID, &book.Title, &book.Author, &book.Price, &book.Quantity)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		log.Printf("Error when getting book: %v", err)
+		return nil, fmt.Errorf("Unsuccess to get book: %v", err)
+	}
+	return book, nil
+}
+
+// Update book
+func (r *bookRepository) UpdateBook(book *models.Book) error {
+	query := "UPDATE books SET title = $1, author = $2, quantity = $3 WHERE id = $4"
+	_, err := r.db.Exec(query, book.Title, book.Author, book.Quantity, book.ID)
+	if err != nil {
+		log.Printf("Error when updating book: %v", err)
+		return fmt.Errorf("unsuccess to update book: %v", err)
 	}
 	return nil
 }
 
-func GetBooks(db *sql.DB) ([]models.Book, error) {
-	rows, err := db.Query(`SELECT id, title, author, price, quantity FROM books`)
+// Delete book
+func (r *bookRepository) DeleteBook(id int) error {
+	query := "DELETE FROM books WHERE id = $1"
+	_, err := r.db.Exec(query, id)
 	if err != nil {
-		log.Println("Error fetching books:", err)
-		return nil, err
+		log.Printf("Error when deleting book: %v", err)
+		return fmt.Errorf("unsuccess to delete book: %v", err)
 	}
-	defer rows.Close()
-
-	var books []models.Book
-	for rows.Next() {
-		var book models.Book
-		if err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Price, &book.Quantity); err != nil {
-			log.Println("Error scanning book:", err)
-			return nil, err
-		}
-		books = append(books, book)
-	}
-	return books, nil
-}
-
-// GetBookByID retrieves a book by its ID.
-func GetBookByID(db *sql.DB, id int) (*models.Book, error) {
-	var book models.Book
-	query := `SELECT id, title, author, price, quantity FROM books WHERE id = $1`
-	err := db.QueryRow(query, id).Scan(&book.ID, &book.Title, &book.Author, &book.Price, &book.Quantity)
-	if err != nil {
-		return nil, err
-	}
-	return &book, nil
-}
-
-// UpdateBook updates the details of a book.
-func UpdateBook(db *sql.DB, book *models.Book) error {
-	query := `
-		UPDATE books
-		SET title = $1, author = $2, price = $3, quantity = $4
-		WHERE id = $5
-	`
-	_, err := db.Exec(query, book.Title, book.Author, book.Price, book.Quantity, book.ID)
-	return err
-}
-
-// DeleteBookByID deletes a book by its ID.
-func DeleteBookByID(db *sql.DB, id int) error {
-	query := `DELETE FROM books WHERE id = $1`
-	_, err := db.Exec(query, id)
-	return err
+	return nil
 }
