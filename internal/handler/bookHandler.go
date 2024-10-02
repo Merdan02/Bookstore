@@ -1,81 +1,95 @@
 package handler
 
-//
-//import (
-//	"Bookstore/internal/repository"
-//	"net/http"
-//	"strconv"
-//
-//	"Bookstore/internal/models"
-//	"github.com/gin-gonic/gin"
-//)
-//
-//type BookHandler struct {
-//	bookService service.BookService
-//}
-//
-//func NewBookHandler(bookService service.BookService) *BookHandler {
-//	return &BookHandler{bookService: bookService}
-//}
-//
-//func (h *BookHandler) CreateBook(c *gin.Context) {
-//	var book *models.Book
-//	if err := c.BindJSON(&book); err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-//		return
-//	}
-//
-//	if err := repository.CreateBook(db, &book); err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to create book"})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, book)
-//}
-//
-//func (h *BookHandler) GetBooks(c *gin.Context) {
-//	books, err := repository.GetBooks(db)
-//	if err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to fetch books"})
-//		return
-//	}
-//	c.JSON(http.StatusOK, books)
-//}
-//
-//func (h *BookHandler) UpdateBook(c *gin.Context) {
-//	id := c.Param("id")
-//	bookID, err := strconv.Atoi(id)
-//	if err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid book ID"})
-//		return
-//	}
-//
-//	var book models.Book
-//	if err := c.BindJSON(&book); err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-//		return
-//	}
-//
-//	book.ID = bookID
-//	if err := repository.UpdateBook(db, &book); err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to update book"})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, book)
-//}
-//func (h *BookHandler) DeleteBook(c *gin.Context) {
-//	id := c.Param("id")
-//	bookID, err := strconv.Atoi(id)
-//	if err != nil {
-//		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid book ID"})
-//		return
-//	}
-//
-//	if err := repository.DeleteBookByID(db, bookID); err != nil {
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to delete book"})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, gin.H{"message": "Book deleted successfully"})
-//}
+import (
+	"Bookstore/internal/models"
+	"Bookstore/internal/service"
+	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
+	"strconv"
+)
+
+type BookHandler struct {
+	service service.BOokService
+}
+
+func NewBookHandler(s service.BOokService) *BookHandler {
+	return &BookHandler{service: s}
+
+}
+
+func (h *BookHandler) CreateBookHandler(c *gin.Context) {
+	var book models.Book
+	if err := c.ShouldBindJSON(&book); err != nil {
+		log.Printf("Error connection to Bindjson: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "wrong data"})
+		return
+	}
+
+	if err := h.service.CreateBook(&book); err != nil {
+		log.Printf("Error create Book in service: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	log.Printf("Created Book in service: %v", book)
+	c.JSON(http.StatusOK, gin.H{"data": book})
+
+}
+
+func (h *BookHandler) GetAllBook(c *gin.Context) {
+	books, err := h.service.GetAllBook()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	//if books == nil {
+	//	c.JSON(http.StatusNotFound, gin.H{"error": "books not found"})
+	//}
+	c.JSON(http.StatusOK, gin.H{"data": books})
+}
+
+func (h *BookHandler) GetBookByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Wrong ID"})
+		return
+	}
+	book, err := h.service.GetBookByID(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	if book == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": book})
+}
+func (h *BookHandler) UpdateBookHandler(c *gin.Context) {
+	var book models.Book
+	if err := c.ShouldBindJSON(&book); err != nil {
+		log.Printf("Error connection to Bindjson: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "wrong data"})
+		return
+	}
+	if err := h.service.UpdateBook(&book); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	log.Printf("Updated Book in service: %v", book)
+	c.JSON(http.StatusOK, gin.H{"data": book})
+}
+
+func (h *BookHandler) DeleteBookHandler(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Wrong ID"})
+		return
+	}
+	if err := h.service.DeleteBook(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	log.Printf("Deleted Book in service: %v", id)
+	c.JSON(http.StatusOK, gin.H{"data": true})
+}

@@ -3,6 +3,7 @@ package repository
 import (
 	"Bookstore/internal/models"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 )
@@ -36,7 +37,40 @@ func (r *bookRepository) CreateBook(book *models.Book) error {
 }
 
 func (r *bookRepository) GetAllBooks() ([]*models.Book, error) {
-	return nil, nil
+	query := "SELECT id, title, author, price, quantity FROM books"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		log.Printf("Error when getting all books: %v", err)
+		return nil, err
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			log.Printf(err.Error())
+		}
+	}(rows)
+
+	var books []*models.Book
+
+	for rows.Next() {
+		book := &models.Book{}
+		// Используем указатели на поля для сканирования данных
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Price, &book.Quantity)
+		if err != nil {
+			log.Printf("Error when scanning book row: %v", err)
+			return nil, err
+		}
+		books = append(books, book)
+	}
+
+	// Проверяем, если ошибка при итерации по строкам
+	if err = rows.Err(); err != nil {
+		log.Printf("Error when iterating over rows: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Retrieved all books: %v", books)
+	return books, nil
 }
 
 func (r *bookRepository) GetBookByID(id int) (*models.Book, error) {
@@ -44,16 +78,16 @@ func (r *bookRepository) GetBookByID(id int) (*models.Book, error) {
 	book := &models.Book{}
 	err := r.db.QueryRow(query, id).Scan(&book.ID, &book.Title, &book.Author, &book.Price, &book.Quantity)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		log.Printf("Error when getting book: %v", err)
-		return nil, fmt.Errorf("Unsuccess to get book: %v", err)
+		return nil, fmt.Errorf("unsuccess to get book: %v", err)
 	}
 	return book, nil
 }
 
-// Update book
+// UpdateBook Update book
 func (r *bookRepository) UpdateBook(book *models.Book) error {
 	query := "UPDATE books SET title = $1, author = $2, quantity = $3 WHERE id = $4"
 	_, err := r.db.Exec(query, book.Title, book.Author, book.Quantity, book.ID)
@@ -64,7 +98,7 @@ func (r *bookRepository) UpdateBook(book *models.Book) error {
 	return nil
 }
 
-// Delete book
+// DeleteBook Delete book
 func (r *bookRepository) DeleteBook(id int) error {
 	query := "DELETE FROM books WHERE id = $1"
 	_, err := r.db.Exec(query, id)
