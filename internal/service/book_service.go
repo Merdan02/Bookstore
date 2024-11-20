@@ -3,7 +3,8 @@ package service
 import (
 	"Bookstore/internal/models"
 	"Bookstore/internal/repository"
-	"errors"
+	"Bookstore/internal/wrong"
+	"log"
 )
 
 type BOokService interface {
@@ -38,9 +39,10 @@ func (s *bookService) GetAllBook() ([]*models.Book, error) {
 
 func (s *bookService) UpdateBook(book *models.Book) error {
 	if book.ID == 0 {
-		return errors.New("invalid id")
+		log.Printf("Invalid ID: %d", book.ID)
+		return wrong.ErrBookIDZero
 	}
-	return s.repo.UpdateBook(book)
+	return s.repo.Update(book)
 }
 
 func (s *bookService) DeleteBook(id int) error {

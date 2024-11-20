@@ -1,40 +1,36 @@
 package middleware
 
 import (
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"log" // Для логирования
+	"go.uber.org/zap"
 	"net/http"
 	"time"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
+// Используем безопасный генератор токенов
 var jwtKey = []byte("your_secret_key")
 
-func GenerateJWT(username, role string) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": username,
-		"role":     role,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+func GenerateAccessToken(username, role string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Subject:   username,
+		IssuedAt:  time.Now().Unix(),
+		ExpiresAt: time.Now().Add(time.Minute * 15).Unix(),
 	})
 
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
-		log.Println("Error generating JWT:", err) // Логируем ошибку генерации токена
+		zap.L().Error("Error generating access token", zap.Error(err))
 		return "", err
 	}
-
 	return tokenString, nil
 }
 
 func AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		role, exists := c.Get("role")
-		log.Println("User role:", role) // Логируем роль пользователя
-
 		if !exists || role != "admin" {
-			log.Println("Unauthorized access attempt by user with role:", role) // Логируем ошибку доступа
+			zap.L().Warn("Unauthorized access attempt", zap.Any("role", role))
 			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this resource"})
 			c.Abort()
 			return
@@ -47,25 +43,25 @@ func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			log.Println("Missing Authorization header") // Логируем отсутствие заголовка авторизации
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this resource"})
-			c.AbortWithStatus(http.StatusForbidden)
+			zap.L().Warn("Missing Authorization header")
+			c.JSON(http.StatusForbidden, gin.H{"error": "Authorization header required"})
+			c.Abort()
 			return
 		}
 
-		claims := &jwt.MapClaims{}
+		claims := &jwt.StandardClaims{}
 		tkn, err := jwt.ParseWithClaims(authHeader, claims, func(token *jwt.Token) (interface{}, error) {
 			return jwtKey, nil
 		})
 		if err != nil || !tkn.Valid {
-			log.Println("Invalid token or parsing error:", err) // Логируем ошибку токена
-			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this resource"})
-			c.AbortWithStatus(http.StatusForbidden)
+			zap.L().Error("Invalid token", zap.Error(err))
+			c.JSON(http.StatusForbidden, gin.H{"error": "Invalid token"})
+			c.Abort()
 			return
 		}
 
-		c.Set("username", (*claims)["username"])
-		c.Set("role", (*claims)["role"])
+		// Вытаскиваем данные пользователя
+		c.Set("username", claims.Subject)
 		c.Next()
 	}
 }

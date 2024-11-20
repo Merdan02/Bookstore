@@ -7,22 +7,22 @@ import (
 	"Bookstore/internal/service"
 	config "Bookstore/pkg/database"
 	"database/sql"
+	"go.uber.org/zap"
 	"log" // Для логирования
 )
 
 // InitApp инициализирует все зависимости (репозитории, сервисы, обработчики)
-func InitApp(db *sql.DB) (*handler.AuthHandler, *handler.BookHandler) {
-	// Логирование процесса инициализации зависимостей
+func InitApp(db *sql.DB, logger *zap.Logger) (*handler.AuthHandler, *handler.BookHandler) {
 	log.Println("Initializing repositories, services, and handlers...")
 
-	// Инициализация зависимостей для пользователей
-	userRepo := repository.NewUserRepository(db)
+	// Initialize dependencies for users
+	userRepo := repository.NewUserRepository(db, logger)
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewAuthHandler(userService)
 	log.Println("User dependencies initialized successfully.")
 
-	// Инициализация зависимостей для книг
-	bookRepo := repository.NewBookRepository(db)
+	// Initialize dependencies for books
+	bookRepo := repository.NewBookRepository(db, logger)
 	bookService := service.NewBookService(bookRepo)
 	bookHandler := handler.NewBookHandler(bookService)
 	log.Println("Book dependencies initialized successfully.")
@@ -31,26 +31,34 @@ func InitApp(db *sql.DB) (*handler.AuthHandler, *handler.BookHandler) {
 }
 
 func Run() {
-	// Логирование подключения к базе данных
 	log.Println("Connecting to the database...")
 
 	db, err := config.ConnectDB()
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err) // Логируем фатальную ошибку при подключении к БД
-		//panic(err)
+		log.Fatalf("Failed to connect to the database: %v", err)
 	}
 	log.Println("Database connection established successfully.")
 
-	// Инициализация зависимостей
-	authHandler, bookHandler := InitApp(db)
+	// Initialize the logger
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
 
-	// Настройка маршрутов
+		}
+	}(logger) // Flushes buffer, if any
+
+	// Initialize dependencies
+	authHandler, bookHandler := InitApp(db, logger)
+
 	log.Println("Setting up routes...")
 	r := routes.SetupRoutes(authHandler, bookHandler)
 
 	log.Println("Starting the server on port :8080...")
 	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("Failed to start the server: %v", err) // Логируем фатальную ошибку при запуске сервера
-		//panic(err)
+		log.Fatalf("Failed to start the server: %v", err)
 	}
 }
