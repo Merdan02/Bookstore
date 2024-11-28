@@ -7,15 +7,17 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"strconv"
 )
 
 // UserRepo Интерфейс для операций с пользователями
 type UserRepo interface {
 	CreateUser(user *models.User) error
 	GetUserByUsername(username string) (*models.User, error)
+	GetUserByID(ID int) (*models.User, error)
 	GetAllUsers() ([]*models.User, error)
 	UpdateUser(user *models.User) error
-	DeleteUser(username string) error
+	DeleteUser(id int) error
 }
 
 // UserRepository Структура репозитория пользователей
@@ -31,10 +33,6 @@ func NewUserRepository(db *sql.DB, logger *zap.Logger) *UserRepository {
 
 // CreateUser Создание нового пользователя
 func (r *UserRepository) CreateUser(user *models.User) error {
-	if err := r.validateUserFields(user); err != nil {
-		r.Log.Warn("Ошибка валидации при создании пользователя", zap.Error(err))
-		return err
-	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -47,17 +45,11 @@ func (r *UserRepository) CreateUser(user *models.User) error {
 		r.Log.Error("Ошибка базы данных при создании пользователя", zap.String("username", user.Username), zap.Error(err))
 		return errors.New("не удалось создать пользователя")
 	}
-
-	//r.Log.Info("Пользователь успешно создан", zap.String("username", user.Username))
 	return nil
 }
 
 // GetUserByUsername Получение пользователя по имени
 func (r *UserRepository) GetUserByUsername(username string) (*models.User, error) {
-	if username == "" {
-		r.Log.Warn("Попытка получить пользователя с пустым именем")
-		return nil, wrong.ErrEmptyUsername
-	}
 
 	user := &models.User{}
 	err := r.DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = $1", username).
@@ -71,8 +63,21 @@ func (r *UserRepository) GetUserByUsername(username string) (*models.User, error
 		r.Log.Error("Ошибка базы данных при получении пользователя", zap.String("username", username), zap.Error(err))
 		return nil, err
 	}
+	return user, nil
+}
 
-	r.Log.Info("Пользователь найден", zap.String("username", user.Username))
+func (r *UserRepository) GetUserByID(ID int) (*models.User, error) {
+	user := &models.User{}
+	err := r.DB.QueryRow("SELECT id, username, password, role FROM users WHERE id = $1", ID).Scan(&user.ID, &user.Username, &user.Password, &user.Role)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			r.Log.Warn("User not found", zap.String("user ID", strconv.Itoa(ID)))
+			return nil, wrong.ErrUserNotFound
+		}
+		r.Log.Error("Error database while getting user", zap.String("username", strconv.Itoa(ID)), zap.Error(err))
+		return nil, err
+	}
 	return user, nil
 }
 
@@ -106,17 +111,17 @@ func (r *UserRepository) GetAllUsers() ([]*models.User, error) {
 		return nil, err
 	}
 
-	r.Log.Info("Пользователи успешно получены", zap.Int("count", len(users)))
+	defer func() {
+		if err := rows.Close(); err != nil {
+			r.Log.Error("Ошибка при закрытии строк результата", zap.Error(err))
+		}
+	}()
+
 	return users, nil
 }
 
 // UpdateUser Обновление данных пользователя
 func (r *UserRepository) UpdateUser(user *models.User) error {
-	if err := r.validateUpdateFields(user); err != nil {
-		r.Log.Warn("Ошибка валидации при обновлении пользователя", zap.Error(err))
-		return err
-	}
-
 	query := "UPDATE users SET username = $1, role = $2 WHERE id = $3"
 	args := []interface{}{user.Username, user.Role, user.ID}
 
@@ -135,52 +140,17 @@ func (r *UserRepository) UpdateUser(user *models.User) error {
 		r.Log.Error("Ошибка базы данных при обновлении пользователя", zap.String("username", user.Username), zap.Error(err))
 		return err
 	}
-
-	r.Log.Info("Пользователь успешно обновлен", zap.String("username", user.Username))
 	return nil
 }
 
 // DeleteUser Удаление пользователя
-func (r *UserRepository) DeleteUser(user *models.User) error {
-	if user.Username == "" {
-		r.Log.Warn("Попытка удалить пользователя с пустым именем")
-		return wrong.ErrEmptyUsername
-	}
+func (r *UserRepository) DeleteUser(id int) error {
 
-	_, err := r.DB.Exec("DELETE FROM users WHERE username = $1", user.Username)
+	_, err := r.DB.Exec("DELETE FROM users WHERE id = $1", id)
 	if err != nil {
-		r.Log.Error("Ошибка базы данных при удалении пользователя", zap.String("username", user.Username), zap.Error(err))
+		r.Log.Error("Ошибка базы данных при удалении пользователя", zap.String("id", strconv.Itoa(id)), zap.Error(err))
 		return errors.New("не удалось удалить пользователя")
 	}
 
-	r.Log.Info("Пользователь успешно удален", zap.String("username", user.Username))
-	return nil
-}
-
-// Вспомогательная функция для валидации полей пользователя при создании
-func (r *UserRepository) validateUserFields(user *models.User) error {
-	if user.Username == "" {
-		return wrong.ErrEmptyUsername
-	}
-	if user.Password == "" {
-		return wrong.ErrEmptyPassword
-	}
-	if user.Role == "" {
-		return wrong.ErrEmptyRole
-	}
-	return nil
-}
-
-// Валидация полей при обновлении пользователя
-func (r *UserRepository) validateUpdateFields(user *models.User) error {
-	if user.ID == 0 {
-		return wrong.ErrUserIDZero
-	}
-	if user.Username == "" {
-		return wrong.ErrEmptyUsername
-	}
-	if user.Role == "" {
-		return wrong.ErrEmptyRole
-	}
 	return nil
 }

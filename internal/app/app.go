@@ -17,13 +17,13 @@ func InitApp(db *sql.DB, logger *zap.Logger) (*handler.AuthHandler, *handler.Boo
 
 	// Initialize dependencies for users
 	userRepo := repository.NewUserRepository(db, logger)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, logger)
 	userHandler := handler.NewAuthHandler(userService)
 	log.Println("User dependencies initialized successfully.")
 
 	// Initialize dependencies for books
 	bookRepo := repository.NewBookRepository(db, logger)
-	bookService := service.NewBookService(bookRepo)
+	bookService := service.NewBookService(bookRepo, logger)
 	bookHandler := handler.NewBookHandler(bookService)
 	log.Println("Book dependencies initialized successfully.")
 

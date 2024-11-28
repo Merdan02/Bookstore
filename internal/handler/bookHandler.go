@@ -81,7 +81,7 @@ func (h *BookHandler) UpdateBookHandler(c *gin.Context) {
 
 	log.Printf("Received data for update: %+v", book)
 	if err := h.service.UpdateBook(&book); err != nil {
-		log.Printf("Error in UpdateBook service: %v", err)
+		//log.Printf("Error in UpdateBook service: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

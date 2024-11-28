@@ -29,9 +29,10 @@ func SetupRoutes(authHandler *handler.AuthHandler, bookHandler *handler.BookHand
 	usersGroup := router.Group("/users")
 	{
 		usersGroup.GET("/", authHandler.GetAllUser)
-		usersGroup.GET("/:username", authHandler.GetUserByUsername)
+		router.GET("/users/id/:id", authHandler.GetUserByID)
+		router.GET("/users/username/:username", authHandler.GetUserByUsername)
 		usersGroup.PUT("/:id", authHandler.UpdateUser)
-		usersGroup.DELETE("/:username", authHandler.DeleteUser)
+		usersGroup.DELETE("/:id", authHandler.DeleteUser)
 	}
 
 	// Маршруты для работы с книгами

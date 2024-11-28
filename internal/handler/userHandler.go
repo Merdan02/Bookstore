@@ -143,6 +143,28 @@ func (h *AuthHandler) GetUserByUsername(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
+func (h *AuthHandler) GetUserByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		log.Println("Invalid user ID:", c.Param("id"), err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	user, err := h.AuthService.GetByUserID(id)
+	if err != nil {
+		if errors.Is(err, wrong.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		log.Printf("Error fetching user by id: %d, error: %v", id, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user"})
+		return
+	}
+
+	log.Printf("Successfully fetched user by id: %d", id)
+	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
 func (h *AuthHandler) UpdateUser(c *gin.Context) {
 	var user models.User
 
@@ -178,12 +200,17 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *AuthHandler) DeleteUser(c *gin.Context) {
-	username := c.Param("username")
-
-	user, err := h.AuthService.GetUserByName(username)
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		log.Println("Error fetching user for deletion:", username, err) // Логируем ошибку при поиске пользователя для удаления
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No username"})
+		log.Println("Invalid user ID:", c.Param("id"), err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.AuthService.GetByUserID(id)
+	if err != nil {
+		log.Println("Error fetching user for deletion:", id, err) // Логируем ошибку при поиске пользователя для удаления
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
