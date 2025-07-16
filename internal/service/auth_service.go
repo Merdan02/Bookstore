@@ -5,9 +5,10 @@ import (
 	"Bookstore/internal/repository"
 	"Bookstore/internal/wrong"
 	"errors"
+	"strconv"
+
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"strconv"
 )
 
 type AuthServ interface {
@@ -118,7 +119,7 @@ func (s *AuthService) GetByUserID(id int) (*models.User, error) {
 		zap.L().Error("Error fetching user by ID", zap.Int("id", id), zap.Error(err))
 		return nil, err
 	}
-	
+
 	return user, nil
 }
 
